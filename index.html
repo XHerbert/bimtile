@@ -1,0 +1,328 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <meta http-equiv="Access-Control-Allow-Origin" content="*">
+
+    <title>BIM轻量化演示</title>
+    <style type="text/css">
+        .layui-timeline-axis {
+            color: #FF5722 !important
+        }
+
+        .finishColor {
+            color: #5FB878 !important
+        }
+
+        .normalColor {
+            color: #FF5722 !important
+        }
+
+        #domId {
+            flex: 1;
+            height: 890px;
+            margin: 0px;
+            padding: 0px;
+        }
+
+        #table td {
+            padding: 8px !important;
+        }
+    </style>
+    <link href="./css/bootstrap.min.css" rel="stylesheet" />
+    <link href="./layui/css/layui.css" rel="stylesheet" />
+</head>
+
+<body>
+    <div class="content-wrapper">
+        <div class="row" style="padding:25px;margin-left:0px;margin-right:0px;margin-top:10%">
+            <div class="col-md-offset-4 col-md-3">
+                <div class="form-inline row">
+                    <div class="col-md-8">
+                        <div class="form-group" style="margin-right:0px;width: 100%;">
+                            <input type="text" class="form-control" id="fileName" readonly style="width:100%"
+                                placeholder="请选择模型文件">
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <button id="btn" class="btn btn-default" style="width:100%"><i
+                                class="layui-icon"></i>上传文件</button><input class="layui-upload-file" type="file"
+                            accept="" name="file">
+                    </div>
+                </div>
+                <div id="prog" class="layui-progress layui-progress-big" style="margin-top: 10px; display: none;"
+                    lay-filter="prog" lay-showpercent="true">
+                    <div class="layui-progress-bar" lay-percent="0%" style="width: 100%;"><span
+                            class="layui-progress-text">100%</span></div>
+                </div>
+
+                <div style="margin-top: 25px;">
+                    <ul class="layui-timeline">
+                        <li class="layui-timeline-item">
+                            <i id="stepOne"
+                                class="layui-icon layui-anim layui-anim-rotate layui-anim-loop layui-timeline-axis layui-icon-radio"></i>
+                            <div class="layui-timeline-content layui-text">
+                                <div class="layui-timeline-title">第一步：模型上传</div>
+                            </div>
+                        </li>
+                        <li class="layui-timeline-item">
+                            <i id="stepTwo" class="layui-icon layui-timeline-axis layui-icon-radio"></i>
+                            <div class="layui-timeline-content layui-text">
+                                <div class="layui-timeline-title">第二步：模型转换，实现模型轻量化</div>
+                            </div>
+                        </li>
+                        <li class="layui-timeline-item">
+                            <i id="stepThree" class="layui-icon layui-timeline-axis layui-icon-radio"></i>
+                            <div class="layui-timeline-content layui-text">
+                                <div class="layui-timeline-title">第三步：模型元数据解析</div>
+                            </div>
+                        </li>
+                        <li class="layui-timeline-item">
+                            <i id="stepFour" class="layui-icon layui-timeline-axis layui-icon-radio"></i>
+                            <div class="layui-timeline-content layui-text">
+                                <div class="layui-timeline-title">第四步：模型预览，轻量化完成后的模型在web端预览</div>
+                            </div>
+                        </li>
+                        <li class="layui-timeline-item">
+                            <i id="stepFive" class="layui-icon layui-timeline-axis layui-icon-radio"></i>
+                            <div class="layui-timeline-content layui-text">
+                                <div class="layui-timeline-title">第五步：模型元数据应用</div>
+                            </div>
+                        </li>
+                    </ul>
+
+                    <table id="table" style="width: 100%;display:none" border="1" align="left">
+                        <tbody>
+                            <tr style="background-color: #fbae95">
+                                <td style="width: 150px"><strong>指标</strong></td>
+                                <td><strong>值</strong></td>
+                            </tr>
+                            <tr>
+                                <td style="width: 150px">构件数量</td>
+                                <td id="elements">89</td>
+                            </tr>
+                            <tr style="background-color: #ffefea">
+                                <td style="width: 150px">三角面数量</td>
+                                <td id="triangles">29058</td>
+                            </tr>
+                            <tr>
+                                <td style="width: 150px">顶点数量</td>
+                                <td id="vertices">33094</td>
+                            </tr>
+                            <tr style="background-color: #ffefea">
+                                <td style="width: 150px">文件大小</td>
+                                <td id="size">5013504Kb</td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                </div>
+                <p style="position: absolute;bottom: -25px;">
+                    <a id="viewModel" href="#" style="color: #ccc;display:none">预览模型</a>
+                    <a id="download" href="#" style="color: #ccc;display:none">下载离线包看看？</a>
+                </p>
+            </div>
+            <!-- <div class="col-md-9" style="border:dotted 2px darkgrey" id="domId"></div> -->
+        </div>
+    </div>
+
+
+    <script src="./scripts/hostLib_wd.js"></script>
+    <script src="./scripts/jquery-3.3.1.min.js"></script>
+    <script src="./scripts/bootstrap.min.js"></script>
+    <script src="./layui/layui.all.js"></script>
+    <script src="https://static.bimface.com/api/BimfaceSDKLoader/BimfaceSDKLoader@latest-release.js"></script>
+
+    <script type="text/javascript">
+        var element, fileId, interval, fileSize, fileName;
+        var app, viewer3D, token;
+        var normal = "layui-icon-radio", normalColor = "normalColor", loading = "layui-icon-loading-1",
+            finish = "layui-icon-ok-circle", rotate = "layui-anim-rotate layui-anim-loop", finishColor = "finishColor",
+            defaultCss = "layui-icon layui-timeline-axis layui-icon-radio";
+        layui.use('element', function () {
+            element = layui.element;
+            console.log(element);
+        });
+
+        //上传完成后，自动发起转换，通过定时器轮询转换结果，如果转换完成则直接自动预览预览
+
+        layui.use('upload', function () {
+            var upload = layui.upload;
+            var offset = Math.floor(Math.random() * 10 + 1);
+            console.time("uploadTimer");
+            //执行实例
+            var uploadInst = upload.render({
+                elem: '#btn'
+                , url: hostAddr.upload
+                , accept: 'file'
+                , size: 0
+                , method: method.POST
+                , before: function (obj) {
+                    $("#stepOne").removeClass(normal).addClass(loading);
+                    let files = obj.pushFile();
+                    console.log(obj);
+                    console.log(files);
+                    //index:文件索引，file:文件对象,result:Base64加密
+                    obj.preview(function (index, file, result) {
+                        console.log(file);
+                        fileSize = file.size;
+                        $("#fileName").val(file.name);
+                        fileName = file.name;
+                    });
+                }
+                , progress: function (n, elem) {
+                    $("#prog").show();
+                    var percent = (n > 10 ? (n - offset) : n) + '%'
+                    element.progress('prog', percent);
+                }, done: function (res) {
+                    if (res.code == httpOk) {
+                        console.timeEnd('uploadTimer');
+                        fileId = res.data.fileId;
+                        $("#btn").attr("disabled", "disabled");
+                        //上传完毕回调
+                        element.progress('prog', '100%');
+                        layer.msg("上传成功", { icon: 1 });
+                        //上传步骤完成
+                        $("#stepOne").removeClass(loading).removeClass(rotate).addClass(finish).addClass(finishColor);
+                        //转换并轮询转换结果，如果转换成功，则直接预览模型
+                        $("#stepTwo").removeClass(normal).addClass(loading).addClass(rotate);
+
+                        console.time("translate");
+                        let options = {
+                            url: hostAddr.translate,
+                            data: JSON.stringify({ fileId: fileId }),
+                            type: method.POST,
+                            contentType: JSONTYPE,
+                            success: (response) => {
+                                if (response.code === httpOk) {
+                                    $("#prog").hide();
+                                    let checkProg = {
+                                        url: hostAddr.translate,
+                                        data: JSON.stringify({ fileId: fileId }),
+                                        type: method.POST,
+                                        contentType: JSONTYPE,
+                                        success: (response) => {
+                                            if (response.code === httpOk && response.data.status == "success") {
+                                                console.timeEnd("translate");
+                                                clearInterval(interval);
+                                                $("#stepTwo").removeClass(loading).removeClass(rotate).addClass(finish).addClass(finishColor);
+                                                $("#stepThree").removeClass(normal).addClass(rotate).addClass(loading);
+
+                                                //开始存储MEP数据
+                                                let saveMepOpt = {
+                                                    url: hostAddr.saveMepData,
+                                                    data: JSON.stringify({ projectId: 390, integrateId: fileId, modelId: fileId }),
+                                                    type: method.POST,
+                                                    contentType: JSONTYPE,
+                                                    success: (response) => {
+                                                        if (response.code === httpOk) {
+                                                            //如果转换完成，则开始自动加载模型进行预览
+                                                            console.log("MEP Save Ok!");
+                                                            let tokenOpt = {
+                                                                url: hostAddr.fileToken + "?fileId=" + fileId,
+                                                                type: method.GET,
+                                                                contentType: JSONTYPE,
+                                                                success: (response) => {
+                                                                    token = response.data;
+                                                                    //跳转新页面打开模型，IP地址需要配置阿里云的，文件名称是专门演示用
+
+                                                                    let viewAddr = "http://39.105.64.228:84/equipment/equHvac?floor=F02&viewToken=" + token + "&modelId=" + fileId;
+                                                                    if (fileName == "LGWDGC-Q-F01-ALL.rvt") {
+                                                                        viewAddr += "&mock=1";
+                                                                    }
+                                                                    //let viewAddr = "preview.html?viewToken=" + token + "&modelId=" + fileId + "&mock=1";
+                                                                    $("#viewModel").attr("href", viewAddr);
+                                                                    console.log("=====begin=====")
+                                                                    window.open(viewAddr, "_blank");
+                                                                    console.log("=====end=====")
+                                                                    $("#stepThree").removeClass(rotate).removeClass(loading).addClass(finish).addClass(finishColor);
+                                                                    $("#stepFour").removeClass(normal).addClass(loading).addClass(rotate);
+
+                                                                    //模拟数据解析
+                                                                    setTimeout(() => {
+                                                                        $("#stepFour").removeClass(rotate).removeClass(loading).addClass(finish).addClass(finishColor);
+                                                                        $("#stepFive").removeClass(normal).addClass(loading).addClass(rotate);
+
+                                                                        setTimeout(() => {
+                                                                            $("#stepFive").removeClass(rotate).removeClass(loading).addClass(finish).addClass(finishColor);
+                                                                            //显示解析的数据
+                                                                            // let info = viewer.getInformation();
+                                                                            // $("#elements").text(info.elements);
+                                                                            // $("#triangles").text(info.triangles);
+                                                                            // $("#vertices").text(info.vertices);
+                                                                            // $("#size").text(fileSize + "Kb");
+                                                                            // $("#table").show();
+
+                                                                            //后台自动生成离线包
+
+                                                                            let offlineDataOpt = {
+                                                                                url: hostAddr.generateOfflineBag + "?modelId=" + fileId,
+                                                                                type: method.PUT,
+                                                                                contentType: JSONTYPE,
+                                                                                success: (response) => {
+                                                                                    if (response.code == httpOk && response.data.status == "success") {
+                                                                                        //调用获取下载离线包的接口设置链接
+                                                                                        console.timeEnd("generateOfflineBag");
+                                                                                        clearInterval(interval);
+                                                                                        let downloadOpt = {
+                                                                                            url: hostAddr.downloadOfflineBag + "?modelId=" + fileId,
+                                                                                            type: method.GET,
+                                                                                            contentType: JSONTYPE,
+                                                                                            success: (response) => {
+                                                                                                if (response.code == httpOk) {
+                                                                                                    let url = response.data;
+                                                                                                    $("#download").attr("href", url);
+                                                                                                    $("#download").show();
+                                                                                                }
+                                                                                            }
+                                                                                        }
+                                                                                        $.ajax(downloadOpt);
+                                                                                    }
+                                                                                }
+                                                                            };
+                                                                            console.time("generateOfflineBag");
+                                                                            interval = setInterval(() => {
+                                                                                console.log("generate offlinebag checking ...");
+                                                                                $.ajax(offlineDataOpt);
+                                                                            }, 3000);
+                                                                        }, 3000)
+                                                                    }, 5000)
+                                                                }
+                                                            };
+                                                            $.ajax(tokenOpt);
+                                                        }
+                                                    }
+                                                }
+                                                $.ajax(saveMepOpt);
+
+                                            }
+                                        }
+                                    };
+                                    //开始轮询转换结果
+                                    interval = setInterval(function checkTranslate() {
+                                        console.log("checking.. ...");
+                                        $.ajax(checkProg);
+                                    }, 10000);
+
+                                } else {
+                                    layer.msg(response.message, { icon: 5 });
+                                }
+                            }
+                        };
+                        $.ajax(options);
+                    }
+                }
+                , error: function (ex) {
+                    //请求异常回调
+                    console.error(ex);
+
+                }
+            });
+        });
+    </script>
+</body>
+
+</html>
